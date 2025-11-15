@@ -20,6 +20,7 @@ def compute_posenc_stats(data, pe_types, is_undirected, cfg):
     'HKdiagSE': Diagonals of heat kernel diffusion.
     'ElstaticSE': Kernel based on the electrostatic interaction between nodes.
     'Graphormer': Computes spatial types and optionally edges along shortest paths.
+    'FLaGPE': Fragment-aware Layerwise Graph PE (no precompute; handled in encoder).
 
     Args:
         data: PyG graph
@@ -34,7 +35,7 @@ def compute_posenc_stats(data, pe_types, is_undirected, cfg):
     # Verify PE types.
     for t in pe_types:
         if t not in ['LapPE', 'EquivStableLapPE', 'SignNet', 'RWSE', 'HKdiagSE',
-                     'HKfullPE', 'ElstaticSE', 'GraphormerBias']:
+                     'HKfullPE', 'ElstaticSE', 'GraphormerBias', 'FLaGPE']:
             raise ValueError(f"Unexpected PE stats selection {t} in {pe_types}")
 
     # Basic preprocessing of the input graph.
