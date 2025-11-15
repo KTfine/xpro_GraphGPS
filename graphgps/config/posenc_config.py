@@ -14,6 +14,7 @@ def set_cfg_posenc(cfg):
     cfg.posenc_HKdiagSE = CN()
     cfg.posenc_ElstaticSE = CN()
     cfg.posenc_EquivStableLapPE = CN()
+    cfg.posenc_FLaGPE = CN()
 
     # Common arguments to all PE types.
     for name in ['posenc_LapPE', 'posenc_SignNet',
@@ -85,3 +86,14 @@ def set_cfg_posenc(cfg):
 
     # Override default, electrostatic kernel has fixed set of 10 measures.
     cfg.posenc_ElstaticSE.kernel.times_func = 'range(10)'
+
+    # Config for FLaGPE (Fragment-aware Layerwise Graph PE)
+    cfg.posenc_FLaGPE.enable = False
+    cfg.posenc_FLaGPE.dim_pe = 32  # Size of PE embedding
+    cfg.posenc_FLaGPE.k_hop = 5  # Number of random walk steps
+    cfg.posenc_FLaGPE.fragment_scheme = 'brics'  # Fragmentation strategy: brics, ringspaths, random, single
+    cfg.posenc_FLaGPE.mlp_hidden = 64  # Hidden dimension for MLP encoder
+    cfg.posenc_FLaGPE.alpha_init = 0.5  # Initial value for alpha (inter-fragment weight)
+    cfg.posenc_FLaGPE.beta_init = 0.5  # Initial value for beta (layer fusion weight)
+    cfg.posenc_FLaGPE.num_layers = 1  # Number of layers for layerwise parameters
+    cfg.posenc_FLaGPE.pass_as_var = False  # Pass PE as separate variable
