@@ -169,31 +169,42 @@ class MultiHeadAttentionLayer(nn.Module):
             # 提取每条边的PE
             edge_pe = p_hat_mod[src_nodes, dst_nodes, :]  # [num_edges, dim_pe]
         else:
-            # 批处理：需要将全局边索引映射到每个图的局部索引
-            batch_ptr = batch.ptr  # [batch_size + 1]
+            # 批处理：向量化提取，避免逐边循环
             batch_indices = batch.batch  # [total_nodes] 每个节点所属的图索引
+            batch_ptr = batch.ptr  # [batch_size + 1]
             
+            src_global = edge_index[0]  # [num_edges]
+            dst_global = edge_index[1]  # [num_edges]
+            
+            # 获取每条边所属的图索引 [num_edges]
+            graph_idx_per_edge = batch_indices[src_global]
+            
+            # 获取每条边的节点偏移 [num_edges]
+            node_offsets = batch_ptr[graph_idx_per_edge]
+            
+            # 计算局部索引 [num_edges]
+            src_local = src_global - node_offsets
+            dst_local = dst_global - node_offsets
+            
+            # 分组提取：为每个图的边收集PE
             edge_pe_list = []
-            for edge_idx in range(num_edges):
-                src_global = edge_index[0, edge_idx].item()
-                dst_global = edge_index[1, edge_idx].item()
+            for graph_idx in range(len(batch_ptr) - 1):
+                # 找出属于这个图的边
+                mask = graph_idx_per_edge == graph_idx
+                if not mask.any():
+                    continue
                 
-                # 确定这条边属于哪个图
-                graph_idx = batch_indices[src_global].item()
+                # 获取这些边的局部索引
+                src_local_i = src_local[mask]
+                dst_local_i = dst_local[mask]
                 
-                # 获取该图的节点起始位置
-                node_offset = batch_ptr[graph_idx].item()
-                
-                # 转换为局部索引
-                src_local = src_global - node_offset
-                dst_local = dst_global - node_offset
-                
-                # 从对应图的 p_hat_modulated 中提取
-                p_hat_mod = batch.p_hat_modulated[graph_idx]  # [N_i, N_i, dim_pe]
-                edge_pe_i = p_hat_mod[src_local, dst_local, :]  # [dim_pe]
+                # 从该图的 p_hat_modulated 中一次性提取所有边的PE
+                p_hat_mod_i = batch.p_hat_modulated[graph_idx]  # [N_i, N_i, dim_pe]
+                edge_pe_i = p_hat_mod_i[src_local_i, dst_local_i, :]  # [num_edges_i, dim_pe]
                 edge_pe_list.append(edge_pe_i)
             
-            edge_pe = torch.stack(edge_pe_list, dim=0)  # [num_edges, dim_pe]
+            # 拼接所有图的边PE
+            edge_pe = torch.cat(edge_pe_list, dim=0)  # [num_edges, dim_pe]
         
         return edge_pe
 
@@ -362,7 +373,7 @@ class SANLayer(nn.Module):
             p_hat_modulated_list = self.compute_modulated_pe(batch)
             
             # Step 4: 
-            # 使用新矩阵的对角线元素作为节点PE  （学长这个对角线PE也是要实时更新的吧？）
+            # 使用新矩阵的对角线元素作为节点PE  
             if batch.batch_size == 1:
                 p_hat_mod = p_hat_modulated_list[0]  # [N, N, dim_pe]
                 p_hat_l = p_hat_mod.diagonal(dim1=0, dim2=1).T  # [N, dim_pe]

@@ -115,16 +115,12 @@ class FLaGPENodeEncoder(torch.nn.Module):
             frag_matrix = frag_id.unsqueeze(1) == frag_id.unsqueeze(0)  # [N, N]
             delta_ij = frag_matrix.float()  # 同片段为1，不同片段为0
             
-            P_list_all = [P_list]
             w_rrwp_all = [w_rrwp]
-            frag_id_all = [frag_id]
             delta_ij_all = [delta_ij]
             
         else:
             # 批处理：每个图分别处理
-            P_list_all = []
             w_rrwp_all = []
-            frag_id_all = []
             delta_ij_all = []
             
             for i in range(len(batch.ptr) - 1):
@@ -152,9 +148,7 @@ class FLaGPENodeEncoder(torch.nn.Module):
                 frag_matrix_i = frag_id_i.unsqueeze(1) == frag_id_i.unsqueeze(0)
                 delta_ij_i = frag_matrix_i.float()
                 
-                P_list_all.append(P_list_i)
                 w_rrwp_all.append(w_rrwp_i)
-                frag_id_all.append(frag_id_i)
                 delta_ij_all.append(delta_ij_i)
         
         # ===== 初始化节点特征 =====
@@ -172,7 +166,6 @@ class FLaGPENodeEncoder(torch.nn.Module):
         
         # ===== 存储供Layer使用 =====
         batch.w_rrwp = w_rrwp_all  # RRWP w_ij [N,N,K]，直接作为PE使用
-        batch.frag_id = frag_id_all  # 片段ID
         batch.delta_ij = delta_ij_all  # 预计算的片段掩码（避免每层重复计算）
         batch.dim_pe = self.dim_pe  # PE维度（等于k_hop）
         batch.batch_size = len(batch.ptr) - 1 if hasattr(batch, 'ptr') else 1
